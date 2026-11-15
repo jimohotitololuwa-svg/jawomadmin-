@@ -1,209 +1,59 @@
 /* ==========================================================
-   JAWOM Workforce form (v2)
-   1. Deploy Code.gs as a Web App (see instructions inside it)
-   2. Paste the Web App URL below
+   JAWOM Workforce - Admin dashboard
+   Uses the same Apps Script Web App as the form.
    ========================================================== */
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbzFusRSzLl8H16vVtsPUbILiYZwCbuxhi7lpwCJQcAqAvhvvUlt8EdJpJZZ42TXHuKThg/exec";
-// Keep the rolling logo on screen at least this long so people see it
-const MIN_LOADER_MS = 2500;
 
-const UNITS =  [
-  "Music and Choir Unit",
-  "Multi-Media and Technical Unit",
-  "Ushering Unit",
-  "Protocol ",
-  "Prayer and Intercessory Unit",
-  "Evangelism and Outreach Unit",
-  "Sanctuary and Maintenance (Sanitation) Unit",
-  "Children Departments",
-  "Counselling and Follow-up Unit",
-  "Traffic  Unit",
-  "Drama and Creative Arts Unit"
-];
+const PAGE_SIZE = 100;          // rows shown at a time
+const MIN_LOADER_MS = 1200;     // keep the rolling logo visible briefly
+const TOKEN_KEY = "jawomAdminToken";
+const PHONE_HEADERS = ["Phone Number", "WhatsApp Number"];
 
-const OTHERS = "Others";
-const NO_UNIT = "No unit";
-const NONE = "None";
+const $ = (id) => document.getElementById(id);
 
-const form = document.getElementById("workforceForm");
-const submitBtn = document.getElementById("submitBtn");
-const formError = document.getElementById("formError");
-const loadingOverlay = document.getElementById("loadingOverlay");
-const successOverlay = document.getElementById("successOverlay");
-const againBtn = document.getElementById("againBtn");
-const unitHeadStar = document.getElementById("unitHeadStar");
+const loginView = $("loginView");
+const dashView = $("dashView");
+const loginForm = $("loginForm");
+const passwordInput = $("password");
+const loginError = $("loginError");
+const loginBtn = $("loginBtn");
+const dashError = $("dashError");
+const loadingOverlay = $("loadingOverlay");
+const loadingText = $("loadingText");
+const tableHead = $("tableHead");
+const tableBody = $("tableBody");
+const emptyMsg = $("emptyMsg");
+const moreBtn = $("moreBtn");
+const searchInput = $("search");
+const unitFilter = $("unitFilter");
 
-const presentUnit = form.elements.presentUnit;
-const alternativeUnit = form.elements.alternativeUnit;
-const presentUnitOther = form.elements.presentUnitOther;
-const alternativeUnitOther = form.elements.alternativeUnitOther;
+let token = "";
+let headers = [];
+let rows = [];
+let filtered = [];
+let shown = PAGE_SIZE;
 
-/* ---------- Build the unit dropdowns ---------- */
-function fillUnitSelect(select, extraLast) {
-  select.innerHTML = "";
-  const add = (value, label) => {
-    const o = document.createElement("option");
-    o.value = value;
-    o.textContent = label;
-    select.appendChild(o);
-  };
-  add("", "Select a unit");
-  UNITS.forEach((u) => add(u, u));
-  add(OTHERS, "Others (type the unit name)");
-  add(extraLast, extraLast);
-}
-fillUnitSelect(presentUnit, NO_UNIT);
-fillUnitSelect(alternativeUnit, NONE);
-
-/* Show the "type your unit" box when Others is picked */
-function toggleOther(select, otherInput) {
-  const show = select.value === OTHERS;
-  otherInput.hidden = !show;
-  if (!show) otherInput.value = "";
-  else otherInput.focus();
-}
-
-presentUnit.addEventListener("change", () => {
-  toggleOther(presentUnit, presentUnitOther);
-  // Someone with no unit has no unit head to name
-  const noUnit = presentUnit.value === NO_UNIT;
-  unitHeadStar.hidden = noUnit;
-  if (noUnit) setError("unitHead", "");
-});
-alternativeUnit.addEventListener("change", () => toggleOther(alternativeUnit, alternativeUnitOther));
-
-/* ---------- Logo fallback (if logo.png is missing) ---------- */
-document.querySelectorAll("[data-logo]").forEach((img) => {
-  img.addEventListener("error", () => {
-    const fallback = document.createElement("span");
-    fallback.className = "logo-missing " + img.className;
-    fallback.textContent = "J";
-    img.replaceWith(fallback);
-  });
-});
-
-/* ---------- Numbers only on phone, WhatsApp and prayer day ---------- */
-["phoneNumber", "whatsappNumber", "prayerDay"].forEach((name) => {
-  form.elements[name].addEventListener("input", (e) => {
-    e.target.value = e.target.value.replace(/\D/g, "");
-  });
-});
-
-/* ---------- Validation ---------- */
-function setError(name, message) {
-  const input = form.elements[name];
-  const slot = form.querySelector(`[data-error-for="${name}"]`);
-  if (input) input.classList.toggle("invalid", Boolean(message));
-  if (slot) slot.textContent = message || "";
-}
-
-const val = (name) => form.elements[name].value.trim();
-
-function validate() {
-  let ok = true;
-  const fail = (name, msg) => { setError(name, msg); ok = false; };
-  const clear = (name) => setError(name, "");
-
-  if (!val("title")) fail("title", "Select your title."); else clear("title");
-  if (!val("firstName")) fail("firstName", "Enter your first name."); else clear("firstName");
-  if (!val("surname")) fail("surname", "Enter your surname."); else clear("surname");
-  if (!val("contactAddress")) fail("contactAddress", "Enter where you live."); else clear("contactAddress");
-  if (!val("churchCentre")) fail("churchCentre", "Enter your church centre."); else clear("churchCentre");
-
-  // Email is optional, but if typed it must be valid
-  const email = val("email");
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    fail("email", "Enter a valid email address, like name@example.com.");
-  } else clear("email");
-
-  // Phone: required, exactly 11 digits
-  if (!val("phoneNumber")) fail("phoneNumber", "Enter your phone number.");
-  else if (!/^\d{11}$/.test(val("phoneNumber"))) fail("phoneNumber", "Phone number must be exactly 11 digits.");
-  else clear("phoneNumber");
-
-  // WhatsApp: optional, but if typed it must be 11 digits
-  if (val("whatsappNumber") && !/^\d{11}$/.test(val("whatsappNumber"))) {
-    fail("whatsappNumber", "WhatsApp number must be exactly 11 digits.");
-  } else clear("whatsappNumber");
-
-  // Prayer day: 1 to 31
-  const day = Number(val("prayerDay"));
-  if (!val("prayerDay")) fail("prayerDay", "Enter your prayer day.");
-  else if (!Number.isInteger(day) || day < 1 || day > 31) fail("prayerDay", "Prayer day must be a number from 1 to 31.");
-  else clear("prayerDay");
-
-  // Present unit
-  if (!presentUnit.value) fail("presentUnit", "Select your present unit.");
-  else if (presentUnit.value === OTHERS && !presentUnitOther.value.trim()) fail("presentUnit", "Type the name of your unit.");
-  else clear("presentUnit");
-
-  // Alternative unit (mandatory)
-  if (!alternativeUnit.value) fail("alternativeUnit", "Select an alternative unit, or choose None.");
-  else if (alternativeUnit.value === OTHERS && !alternativeUnitOther.value.trim()) fail("alternativeUnit", "Type the name of your unit.");
-  else clear("alternativeUnit");
-
-  // Present and alternative unit should not be the same
-  if (presentUnit.value && presentUnit.value === alternativeUnit.value &&
-      ![OTHERS, NO_UNIT, NONE].includes(presentUnit.value)) {
-    fail("alternativeUnit", "Your alternative unit must be different from your present unit.");
-  }
-
-  // Unit head: required unless the person has no unit
-  if (presentUnit.value !== NO_UNIT && !val("unitHead")) {
-    fail("unitHead", "Enter the name of your present unit head.");
-  } else clear("unitHead");
-
-  return ok;
-}
-
-// Clear an error as soon as the person fixes the field
-form.addEventListener("input", (e) => {
-  if (e.target.name) setError(e.target.name, "");
-  formError.hidden = true;
-});
-form.addEventListener("change", (e) => {
-  if (e.target.name) setError(e.target.name, "");
-  // unit pair error can sit on the alternative unit when the present unit changes
-  if (e.target === presentUnit) setError("alternativeUnit", "");
-});
-
-form.addEventListener("reset", () => {
-  form.querySelectorAll("[data-error-for]").forEach((el) => {
-    setError(el.dataset.errorFor, "");
-  });
-  presentUnitOther.hidden = true;
-  alternativeUnitOther.hidden = true;
-  unitHeadStar.hidden = false;
-  formError.hidden = true;
-});
-
-/* ---------- Submit ---------- */
+/* ---------- Helpers ---------- */
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function unitValue(select, otherInput) {
-  return select.value === OTHERS ? `Others: ${otherInput.value.trim()}` : select.value;
+function store(value) {
+  try {
+    if (value) sessionStorage.setItem(TOKEN_KEY, value);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  } catch (e) { /* storage blocked: the person just signs in again after a refresh */ }
+}
+function recall() {
+  try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; }
 }
 
-function buildPayload() {
-  return {
-    website: form.elements.website.value,            // honeypot
-    title: val("title"),
-    firstName: val("firstName"),
-    surname: val("surname"),
-    contactAddress: val("contactAddress"),
-    email: val("email"),
-    phoneNumber: val("phoneNumber"),
-    whatsappNumber: val("whatsappNumber"),
-    churchCentre: val("churchCentre"),
-    prayerDay: Number(val("prayerDay")),
-    presentUnit: unitValue(presentUnit, presentUnitOther),
-    alternativeUnit: unitValue(alternativeUnit, alternativeUnitOther),
-    unitHead: val("unitHead")
-  };
+function showLoader(text) {
+  loadingText.textContent = text;
+  loadingOverlay.hidden = false;
 }
+function hideLoader() { loadingOverlay.hidden = true; }
 
-async function sendToSheet(payload) {
+async function api(payload) {
   // text/plain keeps this a "simple" request, so no CORS preflight is needed
   const res = await fetch(APPS_SCRIPT_URL, {
     method: "POST",
@@ -213,55 +63,285 @@ async function sendToSheet(payload) {
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch (e) { throw new Error("NOT_JSON"); }
-  if (!data.success) throw new Error(data.message || "Submission failed.");
   return data;
 }
 
-form.addEventListener("submit", async (e) => {
+function friendlyError(err) {
+  if (err.message === "NOT_JSON") return "The database link is not public or the URL is wrong. Check the Apps Script deployment settings.";
+  if (err.message === "Failed to fetch") return "Could not reach the database. Check your internet connection and try again.";
+  return err.message;
+}
+
+/* Logo fallback (if logo.png is missing) */
+document.querySelectorAll("[data-logo]").forEach((img) => {
+  img.addEventListener("error", () => {
+    const fallback = document.createElement("span");
+    fallback.className = "logo-missing " + img.className;
+    fallback.textContent = "J";
+    fallback.style.width = fallback.style.height = "56px";
+    img.replaceWith(fallback);
+  });
+});
+
+/* ---------- Views ---------- */
+function toLogin(message) {
+  token = "";
+  store("");
+  rows = [];
+  dashView.hidden = true;
+  loginView.hidden = false;
+  passwordInput.value = "";
+  loginError.textContent = message || "";
+  loginError.hidden = !message;
+  passwordInput.focus();
+}
+
+function toDashboard() {
+  loginView.hidden = true;
+  dashView.hidden = false;
+}
+
+/* ---------- Sign in / out ---------- */
+loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  formError.hidden = true;
+  loginError.hidden = true;
 
-  if (!validate()) {
-    const firstBad = form.querySelector(".invalid");
-    if (firstBad) firstBad.focus();
+  const password = passwordInput.value;
+  if (!password) {
+    loginError.textContent = "Enter the admin password.";
+    loginError.hidden = false;
     return;
   }
 
-  // Only a real Apps Script Web App link (ending in /exec) is accepted
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(APPS_SCRIPT_URL)) {
-    formError.textContent = "The form isn't connected yet. Add your Apps Script Web App URL in script.js.";
-    formError.hidden = false;
-    return;
-  }
-
-  submitBtn.disabled = true;
-  loadingOverlay.hidden = false;
-
+  loginBtn.disabled = true;
+  showLoader("Signing in…");
   try {
-    // Wait for the save AND the minimum loader time
-    await Promise.all([sendToSheet(buildPayload()), wait(MIN_LOADER_MS)]);
-
-    loadingOverlay.hidden = true;
-    successOverlay.hidden = false;
-    againBtn.focus();
-    form.reset();
+    const [data] = await Promise.all([api({ action: "adminLogin", password }), wait(MIN_LOADER_MS)]);
+    if (!data.success) {
+      hideLoader();
+      loginError.textContent = data.message || "Sign in failed.";
+      loginError.hidden = false;
+      return;
+    }
+    token = data.token;
+    store(token);
+    passwordInput.value = "";
+    toDashboard();
+    await loadData(true);
   } catch (err) {
-    loadingOverlay.hidden = true;
-    formError.textContent =
-      err.message === "NOT_JSON"
-        ? "The database link is not public or the URL is wrong. Check the Apps Script deployment settings."
-        : err.message === "Failed to fetch"
-        ? "Could not reach the database. Check your internet connection and try again."
-        : err.message;
-    formError.hidden = false;
+    hideLoader();
+    loginError.textContent = friendlyError(err);
+    loginError.hidden = false;
     console.error(err);
   } finally {
-    submitBtn.disabled = false;
+    loginBtn.disabled = false;
   }
 });
 
-againBtn.addEventListener("click", () => {
-  successOverlay.hidden = true;
-  window.scrollTo({ top: 0 });
-  form.elements.title.focus();
+$("logoutBtn").addEventListener("click", async () => {
+  const t = token;
+  toLogin("");
+  try { await api({ action: "adminLogout", token: t }); } catch (e) { /* already signed out locally */ }
 });
+
+$("refreshBtn").addEventListener("click", () => loadData(true));
+
+/* ---------- Load data ---------- */
+async function loadData(withLoader) {
+  dashError.hidden = true;
+  if (withLoader) showLoader("Loading entries…");
+  try {
+    const [data] = await Promise.all([
+      api({ action: "adminList", token }),
+      withLoader ? wait(MIN_LOADER_MS) : Promise.resolve()
+    ]);
+
+    if (!data.success) {
+      hideLoader();
+      if (data.message === "SESSION_EXPIRED") return toLogin("Your session has expired. Please sign in again.");
+      dashError.textContent = data.message || "Could not load entries.";
+      dashError.hidden = false;
+      return;
+    }
+
+    headers = data.headers;
+    rows = data.rows;
+    buildHead();
+    buildFilters();
+    shown = PAGE_SIZE;
+    render();
+    $("updated").textContent = "Updated " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } catch (err) {
+    dashError.textContent = friendlyError(err);
+    dashError.hidden = false;
+    console.error(err);
+  } finally {
+    hideLoader();
+  }
+}
+
+/* ---------- Table ---------- */
+function buildHead() {
+  tableHead.innerHTML = "";
+  const tr = document.createElement("tr");
+  ["#"].concat(headers).forEach((h, i) => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    if (i === 0) th.className = "num-col";
+    tr.appendChild(th);
+  });
+  tableHead.appendChild(tr);
+}
+
+// "Others: Cleaning Team" counts as "Others"
+function unitGroup(value) {
+  const v = String(value || "").trim();
+  return v.toLowerCase().startsWith("others") ? "Others" : v || "(blank)";
+}
+
+const unitIdx = () => headers.indexOf("Present Unit");
+
+function buildFilters() {
+  const counts = {};
+  rows.forEach((r) => {
+    const g = unitGroup(r[unitIdx()]);
+    counts[g] = (counts[g] || 0) + 1;
+  });
+
+  const groups = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+  // Dropdown (keep the current choice if it still exists)
+  const previous = unitFilter.value;
+  unitFilter.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "All present units";
+  unitFilter.appendChild(all);
+  groups.forEach((g) => {
+    const o = document.createElement("option");
+    o.value = g;
+    o.textContent = `${g} (${counts[g]})`;
+    unitFilter.appendChild(o);
+  });
+  unitFilter.value = groups.includes(previous) ? previous : "";
+
+  // Chips
+  const chips = $("unitChips");
+  chips.innerHTML = "";
+  groups.forEach((g) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.dataset.group = g;
+    b.append(g);
+    const n = document.createElement("b");
+    n.textContent = counts[g];
+    b.appendChild(n);
+    b.addEventListener("click", () => {
+      unitFilter.value = unitFilter.value === g ? "" : g;
+      shown = PAGE_SIZE;
+      render();
+    });
+    chips.appendChild(b);
+  });
+
+  $("totalCount").textContent = rows.length;
+}
+
+function applyFilters() {
+  const q = searchInput.value.trim().toLowerCase();
+  const group = unitFilter.value;
+  const ui = unitIdx();
+
+  filtered = rows.filter((r) => {
+    if (group && unitGroup(r[ui]) !== group) return false;
+    if (q && !r.join(" ").toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function render() {
+  applyFilters();
+
+  // Highlight the active chip
+  document.querySelectorAll(".chip").forEach((c) => {
+    c.classList.toggle("active", c.dataset.group === unitFilter.value);
+  });
+
+  tableBody.innerHTML = "";
+  const visible = filtered.slice(0, shown);
+
+  visible.forEach((r, i) => {
+    const tr = document.createElement("tr");
+
+    const n = document.createElement("td");
+    n.className = "num-col";
+    n.textContent = i + 1;
+    tr.appendChild(n);
+
+    r.forEach((cell, c) => {
+      const td = document.createElement("td");
+      td.textContent = cell; // textContent (never innerHTML) so submitted text cannot run as code
+      if (c === 0 || PHONE_HEADERS.includes(headers[c])) td.className = "nowrap";
+      tr.appendChild(td);
+    });
+
+    tableBody.appendChild(tr);
+  });
+
+  emptyMsg.hidden = filtered.length > 0;
+  emptyMsg.textContent = rows.length ? "No entries match your search." : "No entries yet.";
+  moreBtn.hidden = filtered.length <= shown;
+  moreBtn.textContent = `Show more (${filtered.length - shown} left)`;
+
+  $("resultCount").textContent =
+    filtered.length === rows.length
+      ? `${rows.length} entries`
+      : `${filtered.length} of ${rows.length} entries`;
+}
+
+let searchTimer;
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { shown = PAGE_SIZE; render(); }, 150);
+});
+unitFilter.addEventListener("change", () => { shown = PAGE_SIZE; render(); });
+moreBtn.addEventListener("click", () => { shown += PAGE_SIZE; render(); });
+
+/* ---------- Export CSV (exports everything that matches the current search/filter) ---------- */
+$("exportBtn").addEventListener("click", () => {
+  if (!filtered.length) return;
+
+  const phoneCols = headers.reduce((acc, h, i) => (PHONE_HEADERS.includes(h) ? acc.concat(i) : acc), []);
+
+  const cell = (value, colIndex) => {
+    let v = String(value == null ? "" : value).replace(/"/g, '""');
+    // ="0803..." makes Excel keep the leading zero on phone numbers
+    if (phoneCols.includes(colIndex) && v) return `="${v}"`;
+    return `"${v}"`;
+  };
+
+  const lines = [headers.map((h, i) => cell(h, -1)).join(",")]
+    .concat(filtered.map((r) => r.map((v, i) => cell(v, i)).join(",")));
+
+  const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `jawom-workforce-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+/* ---------- Start ---------- */
+(async function init() {
+  const saved = recall();
+  if (saved) {
+    token = saved;
+    toDashboard();
+    await loadData(true);
+  } else {
+    toLogin("");
+  }
+})();
