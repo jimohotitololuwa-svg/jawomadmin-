@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>JAWOM Workers Registration 2027</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <title>JAWOM Workforce Admin</title>
   <link rel="icon" href="logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,147 +13,74 @@
 </head>
 <body>
 
-  <main class="page">
-    <!-- Banner -->
-    <header class="banner">
-      <img src="banner.jpg" width="1280" height="483" alt="JAWOM Workers Registration 2027" fetchpriority="high" />
+  <!-- ===== Sign in ===== -->
+  <main class="login" id="loginView">
+    <form class="login-card" id="loginForm" novalidate>
+      <img src="logo.png" alt="JAWOM logo" class="login-logo" data-logo />
+      <h1>Admin sign in</h1>
+      <p class="sub">JAWOM WORKFORCE DATABASE</p>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="current-password" required />
+
+      <p class="form-error" id="loginError" role="alert" hidden></p>
+
+      <button type="submit" class="btn-primary" id="loginBtn">Sign in</button>
+    </form>
+  </main>
+
+  <!-- ===== Dashboard ===== -->
+  <div class="dash" id="dashView" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <img src="logo.png" alt="" class="topbar-logo" data-logo />
+        <div>
+          <h1>JAWOM WORKFORCE DATABASE</h1>
+          <p id="updated">Loading…</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="btn-ghost" id="refreshBtn">Refresh</button>
+        <button type="button" class="btn-ghost" id="exportBtn">Export CSV</button>
+        <button type="button" class="btn-ghost" id="logoutBtn">Sign out</button>
+      </div>
     </header>
 
-    <!-- Form panel -->
-    <section class="form-wrap">
-      <form id="workforceForm" novalidate>
-        <h2>Your details</h2>
-        <p class="hint">Fields marked <span class="req">*</span> are required.</p>
-
-        <!-- Honeypot (bots fill this, people never see it) -->
-        <div class="hp" aria-hidden="true">
-          <label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
-        </div>
-
-        <!-- ===== Personal details ===== -->
-        <div class="field">
-          <label for="title">Title <span class="req">*</span></label>
-          <select id="title" name="title" required>
-            <option value="">Select title</option>
-            <option>Rev.</option>
-            <option>Pastor</option>
-            <option>Ass.-Pastor</option>
-            <option>Elder</option>
-            <option>Dcn</option>
-            <option>Dcns</option>
-            <option>Minister</option>
-            <option>Prof</option>
-            <option>Dr.</option>
-          
-            <option>Mr</option>
-            <option>Mrs</option>
-            <option>Miss</option>
-          </select>
-          <small class="error" data-error-for="title"></small>
-        </div>
-
-        <div class="row">
-          <div class="field">
-            <label for="firstName">First Name <span class="req">*</span></label>
-            <input type="text" id="firstName" name="firstName" autocomplete="given-name" required />
-            <small class="error" data-error-for="firstName"></small>
-          </div>
-          <div class="field">
-            <label for="surname">Surname <span class="req">*</span></label>
-            <input type="text" id="surname" name="surname" autocomplete="family-name" required />
-            <small class="error" data-error-for="surname"></small>
-          </div>
-        </div>
-
-        <div class="field">
-          <label for="contactAddress">Contact Address <span class="req">*</span></label>
-          <input type="text" id="contactAddress" name="contactAddress" placeholder="Where do you live?" autocomplete="street-address" required />
-          <small class="error" data-error-for="contactAddress"></small>
-        </div>
-
-        <div class="field">
-          <label for="email">Email</label>
-          <input type="email" id="email" name="email" autocomplete="email" />
-          <small class="error" data-error-for="email"></small>
-        </div>
-
-        <div class="row">
-          <div class="field">
-            <label for="phoneNumber">Phone Number <span class="req">*</span></label>
-            <input type="tel" id="phoneNumber" name="phoneNumber" inputmode="numeric" maxlength="11" placeholder="11 digits" autocomplete="tel" required />
-            <small class="error" data-error-for="phoneNumber"></small>
-          </div>
-          <div class="field">
-            <label for="whatsappNumber">WhatsApp Number</label>
-            <input type="tel" id="whatsappNumber" name="whatsappNumber" inputmode="numeric" maxlength="11" placeholder="11 digits" />
-            <small class="error" data-error-for="whatsappNumber"></small>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="field">
-            <label for="churchCentre">Church Centre <span class="req">*</span></label>
-            <input type="text" id="churchCentre" name="churchCentre" required />
-            <small class="error" data-error-for="churchCentre"></small>
-          </div>
-          <div class="field">
-            <label for="prayerDay">Prayer Day <span class="req">*</span></label>
-            <input type="text" id="prayerDay" name="prayerDay" inputmode="numeric" maxlength="2" placeholder="1 to 31" required />
-            <small class="error" data-error-for="prayerDay"></small>
-          </div>
-        </div>
-
-        <!-- ===== Unit details ===== -->
-        <div class="field">
-          <label for="presentUnit">Present Unit <span class="req">*</span></label>
-          <select id="presentUnit" name="presentUnit" data-unit-select required></select>
-          <input type="text" id="presentUnitOther" name="presentUnitOther" class="other-input" placeholder="Type your unit name" hidden />
-          <small class="error" data-error-for="presentUnit"></small>
-        </div>
-
-        <div class="field">
-          <label for="alternativeUnit">Alternative Unit <span class="req">*</span></label>
-          <select id="alternativeUnit" name="alternativeUnit" data-unit-select required></select>
-          <input type="text" id="alternativeUnitOther" name="alternativeUnitOther" class="other-input" placeholder="Type your unit name" hidden />
-          <small class="error" data-error-for="alternativeUnit"></small>
-        </div>
-
-        <div class="field">
-          <label for="unitHead">Name of Present Unit Head <span class="req" id="unitHeadStar">*</span></label>
-          <input type="text" id="unitHead" name="unitHead" required />
-          <small class="error" data-error-for="unitHead"></small>
-        </div>
-
-        <p class="form-error" id="formError" role="alert" hidden></p>
-
-        <div class="actions">
-          <button type="submit" class="btn-primary" id="submitBtn">Submit</button>
-          <button type="reset" class="btn-ghost" id="clearBtn">Clear form</button>
-        </div>
-      </form>
+    <section class="summary">
+      <div class="total">
+        <span class="total-num" id="totalCount">0</span>
+        <span class="total-label">Total entries</span>
+      </div>
+      <div class="chips" id="unitChips" aria-label="Entries per present unit"></div>
     </section>
-  </main>
+
+    <section class="toolbar">
+      <input type="search" id="search" placeholder="Search name, phone, email, church centre, unit…" aria-label="Search entries" />
+      <select id="unitFilter" aria-label="Filter by present unit"></select>
+      <span class="result-count" id="resultCount"></span>
+    </section>
+
+    <p class="form-error" id="dashError" role="alert" hidden></p>
+
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <p class="empty" id="emptyMsg" hidden>No entries match your search.</p>
+    </div>
+
+    <div class="more-wrap">
+      <button type="button" class="btn-ghost" id="moreBtn" hidden>Show more</button>
+    </div>
+  </div>
 
   <!-- Loading overlay: rolling logo -->
   <div class="overlay" id="loadingOverlay" role="status" aria-live="polite" hidden>
     <div class="roll-track">
       <img src="logo.png" alt="" class="roll-logo" data-logo />
     </div>
-    <p class="overlay-text">Sending your details…</p>
-  </div>
-
-  <!-- Success overlay -->
-  <div class="overlay" id="successOverlay" role="alertdialog" aria-labelledby="successTitle" hidden>
-    <div class="success-card">
-      <svg class="tick" viewBox="0 0 52 52" aria-hidden="true">
-        <circle class="tick-circle" cx="26" cy="26" r="24" />
-        <path class="tick-check" d="M14 27l8 8 16-17" />
-      </svg>
-      <h2 id="successTitle">Thank you for your submission</h2>
-      <p class="blessing">You have successfully submitted. God bless you.</p>
-      <p class="db-note">Your information has been sent to the <strong>JAWOM WORKFORCE DATABASE</strong>.</p>
-      <button type="button" class="btn-primary" id="againBtn">Submit another response</button>
-    </div>
+    <p class="overlay-text" id="loadingText">Loading…</p>
   </div>
 
   <script src="script.js"></script>
