@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>JAWOM Workforce Admin</title>
+  <link rel="icon" href="logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== Sign in ===== -->
+  <main class="login" id="loginView">
+    <form class="login-card" id="loginForm" novalidate>
+      <img src="logo.png" alt="JAWOM logo" class="login-logo" data-logo />
+      <h1>Admin sign in</h1>
+      <p class="sub">JAWOM WORKFORCE DATABASE</p>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="current-password" required />
+
+      <p class="form-error" id="loginError" role="alert" hidden></p>
+
+      <button type="submit" class="btn-primary" id="loginBtn">Sign in</button>
+    </form>
+  </main>
+
+  <!-- ===== Dashboard ===== -->
+  <div class="dash" id="dashView" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <img src="logo.png" alt="" class="topbar-logo" data-logo />
+        <div>
+          <h1>JAWOM WORKFORCE DATABASE</h1>
+          <p id="updated">Loading…</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="btn-ghost" id="refreshBtn">Refresh</button>
+        <button type="button" class="btn-ghost" id="exportBtn">Export CSV</button>
+        <button type="button" class="btn-ghost" id="logoutBtn">Sign out</button>
+      </div>
+    </header>
+
+    <section class="summary">
+      <div class="total">
+        <span class="total-num" id="totalCount">0</span>
+        <span class="total-label">Total entries</span>
+      </div>
+      <div class="chips" id="unitChips" aria-label="Entries per present unit"></div>
+    </section>
+
+    <section class="toolbar">
+      <input type="search" id="search" placeholder="Search name, phone, email, church centre, unit…" aria-label="Search entries" />
+      <select id="unitFilter" aria-label="Filter by present unit"></select>
+      <span class="result-count" id="resultCount"></span>
+    </section>
+
+    <p class="form-error" id="dashError" role="alert" hidden></p>
+
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <p class="empty" id="emptyMsg" hidden>No entries match your search.</p>
+    </div>
+
+    <div class="more-wrap">
+      <button type="button" class="btn-ghost" id="moreBtn" hidden>Show more</button>
+    </div>
+  </div>
+
+  <!-- Loading overlay: rolling logo -->
+  <div class="overlay" id="loadingOverlay" role="status" aria-live="polite" hidden>
+    <div class="roll-track">
+      <img src="logo.png" alt="" class="roll-logo" data-logo />
+    </div>
+    <p class="overlay-text" id="loadingText">Loading…</p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
